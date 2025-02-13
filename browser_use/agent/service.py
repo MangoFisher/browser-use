@@ -441,11 +441,22 @@ class Agent:
 		elif self.tool_calling_method is None:
 			structured_llm = self.llm.with_structured_output(self.AgentOutput, include_raw=True)
 			response: dict[str, Any] = await structured_llm.ainvoke(input_messages)  # type: ignore
+			logger.info(f"[LLM Response] {json.dumps(response, indent=2)}")
+
 			parsed: AgentOutput | None = response['parsed']
+			logger.info(f"[Parsed Output] {parsed.model_dump_json(indent=2) if parsed else 'None'}")
 		else:
 			structured_llm = self.llm.with_structured_output(self.AgentOutput, include_raw=True, method=self.tool_calling_method)
+			
+			start_time = asyncio.get_event_loop().time()
 			response: dict[str, Any] = await structured_llm.ainvoke(input_messages)  # type: ignore
+			end_time = asyncio.get_event_loop().time()
+			logger.info(f"[Time LLM] Call took {end_time - start_time:.2f} seconds")
+			
+			logger.info(f"[LLM Response] {json.dumps(response, indent=2)}")
+
 			parsed: AgentOutput | None = response['parsed']
+			logger.info(f"[Parsed Output] {parsed.model_dump_json(indent=2) if parsed else 'None'}")
 
 		if parsed is None:
 			raise ValueError('Could not parse response.')
