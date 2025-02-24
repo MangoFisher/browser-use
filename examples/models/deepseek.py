@@ -15,6 +15,10 @@ if not api_key:
 	raise ValueError('DEEPSEEK_API_KEY is not set')
 
 
+from lmnr import Laminar
+Laminar.initialize(project_api_key=os.getenv('LMNR_PROJECT_API_KEY', ''))
+
+
 async def run_search():
 	agent = Agent(
 		task=(
