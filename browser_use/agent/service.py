@@ -441,7 +441,12 @@ class Agent:
 		elif self.tool_calling_method is None:
 			structured_llm = self.llm.with_structured_output(self.AgentOutput, include_raw=True)
 			response: dict[str, Any] = await structured_llm.ainvoke(input_messages)  # type: ignore
-			logger.info(f"[LLM Response] {json.dumps(response, indent=2)}")
+			logger.info(f"[LLM Response Raw] {response}")
+
+			try:
+				logger.info(f"[LLM Response JSON] {json.dumps(response, indent=2)}")
+			except:
+				pass  # JSON 格式化失败就跳过
 
 			parsed: AgentOutput | None = response['parsed']
 			logger.info(f"[Parsed Output] {parsed.model_dump_json(indent=2) if parsed else 'None'}")
@@ -449,11 +454,20 @@ class Agent:
 			structured_llm = self.llm.with_structured_output(self.AgentOutput, include_raw=True, method=self.tool_calling_method)
 			
 			start_time = asyncio.get_event_loop().time()
+			#原来调用大模型的方式
 			response: dict[str, Any] = await structured_llm.ainvoke(input_messages)  # type: ignore
+
+			#新的，支持大模型调用超时机制的方式，默认30s
+			# response: dict[str, Any] = await self._ainvoke_with_timeout(structured_llm, input_messages, 30) or {}
 			end_time = asyncio.get_event_loop().time()
 			logger.info(f"[Time LLM] Call took {end_time - start_time:.2f} seconds")
-			
-			logger.info(f"[LLM Response] {json.dumps(response, indent=2)}")
+
+			logger.info(f"[LLM Response Raw] {response}")
+
+			try:
+				logger.info(f"[LLM Response JSON] {json.dumps(response, indent=2)}")
+			except:
+				pass  # JSON 格式化失败就跳过
 
 			parsed: AgentOutput | None = response['parsed']
 			logger.info(f"[Parsed Output] {parsed.model_dump_json(indent=2) if parsed else 'None'}")
@@ -1285,3 +1299,17 @@ class Agent:
 			logger.info(f'Plan: {plan}')
 
 		return plan
+	
+	async def _ainvoke_with_timeout(self, structured_llm, input_messages, timeout: int = 30):
+		try:
+			start_time = asyncio.get_event_loop().time()
+			response = await asyncio.wait_for(
+				structured_llm.ainvoke(input_messages),
+				timeout=timeout
+			)
+			end_time = asyncio.get_event_loop().time()
+			logger.info(f"[Time LLM] Call took {end_time - start_time:.2f} seconds")
+			return response
+		except asyncio.TimeoutError:
+			logger.warning(f"[Time LLM] Call timeout after {timeout} seconds")
+			return None
